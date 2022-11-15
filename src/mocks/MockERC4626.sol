@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
-import "../solmate/src/tokens/ERC20.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
 
 contract MockERC4624 is ERC20 {
     ERC20 public immutable asset;
