@@ -123,6 +123,25 @@ contract buyBack {
     address constant GRO_VESTOR = 0x748218256AfE0A19a88EBEB2E0C5Ce86d2178360;
 
     address constant THREE_POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
+    address internal constant WETH =
+        address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    address internal constant USDC =
+        address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    address internal constant GRO =
+        address(0x3Ec8798B81485A254928B70CDA1cf0A2BB0B74D7);
+    address internal constant CRV_3POOL =
+        address(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
+
+    ERC20 internal constant CRV_3POOL_TOKEN =
+        ERC20(address(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490));
+
+    address internal constant UNI_V2 =
+        address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    address internal constant UNI_V3 =
+        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    address internal constant USDC_ETH_V3 =
+        address(0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640);
+    uint256 internal constant UNI_V3_FEE = 500;
     
     address immutable GVAULT;
     address immutable GTRANCHE;
@@ -278,29 +297,6 @@ contract buyBack {
         require(msg.data.length == 0);
         emit LogDepositReceived(msg.sender, msg.value); 
     }
-
-    address internal constant WETH =
-        address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-
-    address internal constant USDC =
-        address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-
-    address internal constant GRO =
-        address(0x3Ec8798B81485A254928B70CDA1cf0A2BB0B74D7);
-
-    address internal constant CRV_3POOL =
-        address(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
-
-    ERC20 internal constant CRV_3POOL_TOKEN =
-        ERC20(address(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490));
-
-    address internal constant UNI_V2 =
-        address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
-    address internal constant UNI_V3 =
-        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    address internal constant USDC_ETH_V3 =
-        address(0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640);
-    uint256 internal constant UNI_V3_FEE = 500;
 
     /// @notice Get price of cvx/crv in eth
     /// @param _amount Amount of rewards to swap
