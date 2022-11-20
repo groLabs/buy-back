@@ -3,6 +3,8 @@ pragma solidity >=0.8.0;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
+import "forge-std/console2.sol";
+
 contract MockERC4624 is ERC20 {
     ERC20 public immutable asset;
     uint256 public totalAssets;
@@ -33,18 +35,30 @@ contract MockERC4624 is ERC20 {
         totalAssets = _newTotal;
     }
 
-    function deposit(address _account, uint256 _amount) external {
-        _mint(_account, _amount);
-        totalAssets += _amount;
+    function redeem(uint256 _amount, address _account, address _receiver) external returns (uint256) {
+        uint256 balance = convertToAssets(_amount);
+        _burn(_account, _amount);
+        console2.log('balance %s holding %s', balance, asset.balanceOf(address(this)));
+        console2.log('recipient %s', _receiver);
+        asset.transfer(_receiver, balance);
+        return(balance);
     }
 
-    function convertToAssets(uint256 _shares) external view returns (uint256) {
+    function deposit(address _account, uint256 _amount) external returns (uint256){
+        asset.transferFrom(_account, address(this), _amount);
+        uint256 balance = convertToShares(_amount);
+        _mint(_account, _amount);
+        totalAssets += _amount;
+        return _amount;
+    }
+
+    function convertToAssets(uint256 _shares) public view returns (uint256) {
         if (_shares == 0) return 0;
         if (totalSupply == 0) return 0;
         return (_shares * totalAssets) / totalSupply;
     }
 
-    function convertToShares(uint256 _shares) external view returns (uint256) {
+    function convertToShares(uint256 _shares) public view returns (uint256) {
         if (_shares == 0) return 0;
         if (totalSupply == 0) return 0;
         return (_shares * totalSupply) / totalAssets;
