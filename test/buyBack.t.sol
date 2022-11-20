@@ -7,7 +7,6 @@ import "./utils/utils.sol";
 import "../src/BuyBack.sol";
 import "../src/mocks/MockERC4626.sol";
 
-import "forge-std/console2.sol";
 
 interface I3POOL {
     function add_liquidity(uint256[3] memory amounts, uint256 min_mint_amount) external;
@@ -102,7 +101,6 @@ contract buyBackTest is Test {
         uint256 balance = genThreeCrv(_amount, _user);
         vm.startPrank(_user);
         THREE_POOL_TOKEN.approve(address(gVault), balance);
-        console2.log(_user, balance);
         shares = gVault.deposit(_user, balance);
         vm.stopPrank();
     }
@@ -132,21 +130,16 @@ contract buyBackTest is Test {
     }
 
     function testSellToken() public {
-        console2.log('first assertion %s %s', bb.canSellToken(), bb.canSellToken() == ZERO);
-        console2.log('amount of gvault %s', gVault.balanceOf(address(bb)));
         assertTrue(bb.canSellToken() == ZERO);
         depositIntoVault(alice, 1E26);
         vm.startPrank(alice);
 
-        console2.log(ERC20(gVault).balanceOf(alice));
         ERC20(gVault).transfer(address(bb), 1E23);
         vm.stopPrank();
         address tokenToSell = bb.canSellToken();
-        console2.log('second assertion %s : %s', tokenToSell, tokenToSell != ZERO);
         assertTrue(tokenToSell != ZERO);
 
         vm.startPrank(BASED_ADDRESS);
-        console2.log(bb.keepers(BASED_ADDRESS));
         assertEq(USDC.balanceOf(address(bb)), 0);
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
@@ -162,7 +155,6 @@ contract buyBackTest is Test {
         ERC20(gVault).transfer(address(bb), 1E23);
         vm.stopPrank();
 
-        console2.log('first assertion %s', bb.canSendToTreasury());
         assertTrue(bb.canSendToTreasury() == false);
 
         vm.startPrank(BASED_ADDRESS);
@@ -170,18 +162,14 @@ contract buyBackTest is Test {
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
 
-        console2.log('second assertion %s', bb.canSendToTreasury());
         assertTrue(bb.canSendToTreasury() == true);
-        console2.log('third assertion %s', USDC.balanceOf(address(bb)));
         uint256 initBuyBackBalance = USDC.balanceOf(address(bb));
         assertTrue(initBuyBackBalance > 0);
         
         vm.startPrank(BASED_ADDRESS);
         uint256 initTreasuryBalance = USDC.balanceOf(GRO_TREASURY);
         bb.sendToTreasury();
-        console2.log('forth assertion %s', USDC.balanceOf(address(bb)));
         assertTrue(USDC.balanceOf(address(bb)) < initBuyBackBalance);
-        console2.log('fifth assertion %s', USDC.balanceOf(GRO_TREASURY), initTreasuryBalance);
         assertTrue(USDC.balanceOf(GRO_TREASURY) > initTreasuryBalance);
 
         vm.stopPrank();
@@ -194,7 +182,6 @@ contract buyBackTest is Test {
         ERC20(gVault).transfer(address(bb), 1E23);
         vm.stopPrank();
 
-        console2.log('first assertion %s', bb.canBurnTokens());
         assertTrue(bb.canBurnTokens() == false);
 
         vm.startPrank(BASED_ADDRESS);
@@ -202,9 +189,7 @@ contract buyBackTest is Test {
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
 
-        console2.log('second assertion %s', bb.canBurnTokens());
         assertTrue(bb.canBurnTokens() == true);
-        console2.log('third assertion %s', USDC.balanceOf(address(bb)));
         
         vm.startPrank(BASED_ADDRESS);
         uint256 initBuyBackBalance = USDC.balanceOf(address(bb));
@@ -213,7 +198,6 @@ contract buyBackTest is Test {
         bb.burnTokens();
         assertTrue(IVest(GRO_VESTER).totalBalance(address(this)) == 0);
         assertGt( IHodler(GRO_HODLER).totalBonus(), initBonusAmount);
-        console2.log('forth assertion %s', USDC.balanceOf(address(bb)));
         assertTrue(USDC.balanceOf(address(bb)) < initBuyBackBalance);
 
         vm.stopPrank();
@@ -226,7 +210,6 @@ contract buyBackTest is Test {
         ERC20(gVault).transfer(address(bb), 1E23);
         vm.stopPrank();
 
-        console2.log('first assertion %s', bb.canTopUpKeeper());
         assertTrue(bb.canTopUpKeeper() == false);
 
         vm.startPrank(BASED_ADDRESS);
@@ -234,16 +217,13 @@ contract buyBackTest is Test {
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
 
-        console2.log('second assertion %s', bb.canTopUpKeeper());
         assertTrue(bb.canTopUpKeeper() == true);
-        console2.log('third assertion %s', USDC.balanceOf(address(bb)));
         
         vm.startPrank(BASED_ADDRESS);
         uint256 initBuyBackBalance = USDC.balanceOf(address(bb));
         uint256 initGelatoBalance = IGelato(GELATO_WALLET).totalUserTokenBalance(GELATO_KEEPER, GELATO_ETH);
         bb.topUpKeeper();
         assertGt(IGelato(GELATO_WALLET).totalUserTokenBalance(GELATO_KEEPER, GELATO_ETH), initGelatoBalance);
-        console2.log('forth assertion %s', USDC.balanceOf(address(bb)));
         assertTrue(USDC.balanceOf(address(bb)) < initBuyBackBalance);
 
         vm.stopPrank();

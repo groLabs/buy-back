@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "./interfaces/ERC4626.sol";
 
-import "forge-std/console2.sol";
 
 library BuyBackErrors {
     error NotOwner(); // 0x30cd7471
@@ -233,7 +232,6 @@ contract BuyBack {
         address token;
         for (uint256 i = 0; i < noOfTokens - 1; i++) {
             token = tokens[i];
-            console2.log('token %s minSellAmount %s balance %s', token, tokenInfo[token].minSellAmount, ERC20(token).balanceOf(address(this)));
             if(ERC20(token).balanceOf(address(this)) > tokenInfo[token].minSellAmount) {
                 return token;
             }
@@ -246,7 +244,6 @@ contract BuyBack {
         address token;
         for (uint256 i = 0; i < noOfTokens - 1; i++) {
             token = tokens[i];
-            console2.log('token %s minSellAmount %s balance %s', token, tokenInfo[token].minSellAmount, ERC20(token).balanceOf(address(this)));
             if(ERC20(token).balanceOf(address(this)) > tokenInfo[token].minSellAmount) {
                 return token;
             }
@@ -265,7 +262,6 @@ contract BuyBack {
     }
 
     function _sellTokens(address _token, uint256 _amount, AMM _amm, uint24 _fee) internal returns (uint256 amount) {
-        console2.log('_sellTokens %s %s %s', _token, _amount, uint256(_amm));
         if  (_amm == AMM.CURVE) {
             amount = curveSwap(_amount);
         } else if (_amm == AMM.UNIv2) {
@@ -284,7 +280,6 @@ contract BuyBack {
 
         address wrapper = tokenI.wrapped;
         if (wrapper != address(0)) (amountToSell, _token) =  unwrapToken(amountToSell, _token, wrapper);
-        console2.log('sellToken');
         uint256 amount = _sellTokens(_token, amountToSell, tokenI.amm, tokenI.fee);
         uint256 amountToTreasury = amount * tokenDistribution.treasury / BP;
         uint256 amountToBurner = amount * tokenDistribution.burner / BP; 
@@ -304,8 +299,6 @@ contract BuyBack {
     }
 
     function canTopUpKeeper() external view returns (bool) {
-        console2.log('gelato balance %s', IGelatoTopUp(GELATO_WALLET).userTokenBalance(GELATO_KEEPER, GELATO_ETH));
-        console2.log('gelato top up %s', topUpAvailable());
         if (IGelatoTopUp(GELATO_WALLET).userTokenBalance(GELATO_KEEPER, GELATO_ETH) < KEEPER_MIN_ETH && topUpAvailable() > MIN_TOPUP_ETH) {
             return true;
         }
@@ -320,7 +313,6 @@ contract BuyBack {
     function topUpKeeper() external returns (uint256) {
         if(msg.sender != owner || !keepers[msg.sender]) revert BuyBackErrors.NotKeeper();
         uint256 _keeperAmount = uniV3Swap(USDC, WETH, 500, keeper, true);
-        console2.log('eth amount %s balance %s', _keeperAmount, address(this).balance);
         if (_keeperAmount == 0) return 0;
         (bool success, bytes memory result) = GELATO_WALLET.call{value: _keeperAmount}(abi.encodeWithSignature("depositFunds(address,address,uint256)", GELATO_KEEPER, GELATO_ETH, _keeperAmount));
         if(!success) revert BuyBackErrors.GelatoDepositFailed();
@@ -398,8 +390,6 @@ contract BuyBack {
         path[0] = _start;
         path[1] = _end;
 
-        console2.log('start %s amount %s balance %s', _start, _amount, ERC20(USDC).balanceOf(address(this)));
-        console2.log('allowance router %s', ERC20(USDC).allowance(address(this), UNI_V2));
         uint256[] memory swap = IUniV2(UNI_V2).swapExactTokensForTokens(
             _amount,
             uint256(0),
@@ -421,7 +411,6 @@ contract BuyBack {
                 uint256(1)
             )
         );
-        console2.log('weth %s return %s', ERC20(WETH).balanceOf(address(this)), amount);
         if (_eth) {
             IWETH9(WETH).withdraw(amount);
         }

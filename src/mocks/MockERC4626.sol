@@ -3,7 +3,6 @@ pragma solidity >=0.8.0;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
-import "forge-std/console2.sol";
 
 contract MockERC4624 is ERC20 {
     ERC20 public immutable asset;
@@ -38,8 +37,6 @@ contract MockERC4624 is ERC20 {
     function redeem(uint256 _amount, address _account, address _receiver) external returns (uint256) {
         uint256 balance = convertToAssets(_amount);
         _burn(_account, _amount);
-        console2.log('balance %s holding %s', balance, asset.balanceOf(address(this)));
-        console2.log('recipient %s', _receiver);
         asset.transfer(_receiver, balance);
         return(balance);
     }
