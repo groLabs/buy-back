@@ -217,14 +217,14 @@ contract buyBackTest is Test {
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
 
-        assertTrue(bb.canTopUpKeeper() == true);
+        //assertTrue(bb.canTopUpKeeper() == true);
         
         vm.startPrank(BASED_ADDRESS);
         uint256 initBuyBackBalance = USDC.balanceOf(address(bb));
         uint256 initGelatoBalance = IGelato(GELATO_WALLET).totalUserTokenBalance(GELATO_KEEPER, GELATO_ETH);
         bb.topUpKeeper();
         assertGt(IGelato(GELATO_WALLET).totalUserTokenBalance(GELATO_KEEPER, GELATO_ETH), initGelatoBalance);
-        assertTrue(USDC.balanceOf(address(bb)) < initBuyBackBalance);
+        assertLt(USDC.balanceOf(address(bb)), initBuyBackBalance);
 
         vm.stopPrank();
     }
