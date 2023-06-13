@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// spdx-license-identifier: unlicensed
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
@@ -6,6 +6,7 @@ import "forge-std/Vm.sol";
 import "./utils/utils.sol";
 import "../src/BuyBack.sol";
 import "../src/mocks/MockERC4626.sol";
+import "forge-std/console2.sol";
 
 
 interface I3POOL {
@@ -118,7 +119,6 @@ contract buyBackTest is Test {
 		gVault = new MockERC4624(THREE_POOL_TOKEN, 'test vault', 'TV', 18);
         bb = new BuyBack();
 
-
         bb.setKeeper(BASED_ADDRESS);
         bb.setTokenDistribution(3000, 5000, 2000);
         bb.setToken(address(USDC), ZERO, type(uint256).max, 1, 500);
@@ -217,6 +217,7 @@ contract buyBackTest is Test {
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
 
+        // need to set neutral keeper or reduce keeper wallet to 0 prior to test
         //assertTrue(bb.canTopUpKeeper() == true);
         
         vm.startPrank(BASED_ADDRESS);
@@ -227,5 +228,71 @@ contract buyBackTest is Test {
         assertLt(USDC.balanceOf(address(bb)), initBuyBackBalance);
 
         vm.stopPrank();
+    }
+
+    function testRunBuyBackTrigger() public {
+        depositIntoVault(alice, 1E26);
+        vm.startPrank(alice);
+
+        ERC20(gVault).transfer(address(bb), 1E23);
+        vm.stopPrank();
+
+        assertTrue(bb.canBurnTokens() == false);
+        assertTrue(bb.canSendToTreasury() == false);
+        assertTrue(bb.canTopUpKeeper() == false);
+        assertTrue(bb.canSellToken() != address(0));
+
+        (address token, bool treasury, bool burn, bool topUp) = bb.buyBackTrigger();
+
+        assertTrue(treasury == false);
+        assertTrue(burn == false);
+        assertTrue(topUp == false);
+        assertTrue(token != address(0));
+
+        vm.startPrank(BASED_ADDRESS);
+        address tokenToSell = bb.canSellToken();
+        bb.sellTokens(tokenToSell);
+        vm.stopPrank();
+
+        (token, treasury, burn, topUp) = bb.buyBackTrigger();
+
+        assertTrue(treasury == true);
+        assertTrue(burn == true);
+        assertTrue(topUp == false);
+        assertTrue(token == address(0));
+        assertTrue(bb.canBurnTokens() == true);
+    }
+
+    function testRunBuyBack() public {
+        depositIntoVault(alice, 1E26);
+        vm.startPrank(alice);
+
+        ERC20(gVault).transfer(address(bb), 1E23);
+        vm.stopPrank();
+
+        assertTrue(bb.canBurnTokens() == false);
+        assertTrue(bb.canSendToTreasury() == false);
+        assertTrue(bb.canTopUpKeeper() == false);
+        assertTrue(bb.canSellToken() != address(0));
+
+        (address token, bool treasury, bool burn, bool topUp) = bb.buyBackTrigger();
+
+        assertTrue(treasury == false);
+        assertTrue(burn == false);
+        assertTrue(topUp == false);
+        assertTrue(token != address(0));
+
+        vm.startPrank(BASED_ADDRESS);
+        address tokenToSell = bb.canSellToken();
+        bb.sellTokens(tokenToSell);
+        vm.stopPrank();
+
+        (token, treasury, burn, topUp) = bb.buyBackTrigger();
+
+        assertTrue(treasury == true);
+        assertTrue(burn == true);
+        assertTrue(topUp == false);
+        assertTrue(token == address(0));
+        assertTrue(bb.canBurnTokens() == true);
     }
 }

@@ -433,11 +433,11 @@ contract BuyBack {
         emit tokenSold(_token, amountToSell, amountToTreasury, amountToKeeper, amountToBurner);
     }
 
-    function runBuyBack(address _token) external returns (bool) {
+    function runBuyBack(address _token, bool _burn, bool _treasury, bool _topUp) external returns (bool) {
         sellTokens(_token);
-        if (canBurnTokens()) burnTokens();
-        if (canSendToTreasury()) sendToTreasury(); 
-        if (canTopUpKeeper()) topUpKeeper();
+        if (_burn) burnTokens();
+        if (_treasury) sendToTreasury(); 
+        if (_topUp) topUpKeeper();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
