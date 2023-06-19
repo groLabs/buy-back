@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "./interfaces/ERC4626.sol";
+import {IBuyBack} from "./interfaces/IBuyBack.sol";
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //                  LIBRARIES
@@ -174,7 +175,7 @@ interface IWETH9 {
 //                  BUY BACK CONTRACT
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-contract BuyBack {
+contract BuyBack is IBuyBack {
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  CONSTANTS
     ////////////////////////////////////////////////////////////////////////////////////////////
@@ -359,7 +360,7 @@ contract BuyBack {
     //                  TRIGGERS
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    function canSellToken() public view returns (address) {
+    function canSellToken() public view override returns (address) {
         uint256 noOfTokens = tokens.length;
         address token;
         for (uint256 i = 0; i < noOfTokens - 1; i++) {
@@ -373,12 +374,12 @@ contract BuyBack {
         }
     }
 
-    function canSendToTreasury() public view returns (bool) {
+    function canSendToTreasury() public view override returns (bool) {
         if (ERC20(USDC).balanceOf(address(this)) > MIN_SEND_TO_TREASURY)
             return true;
     }
 
-    function canBurnTokens() public view returns (bool) {
+    function canBurnTokens() public view override returns (bool) {
         if (
             getPriceV2(USDC, GRO, ERC20(USDC).balanceOf(address(this))) >
             MIN_BURN
@@ -387,7 +388,7 @@ contract BuyBack {
         }
     }
 
-    function canTopUpKeeper() public view returns (bool) {
+    function canTopUpKeeper() public view override returns (bool) {
         if (
             IGelatoTopUp(GELATO_WALLET).userTokenBalance(
                 GELATO_KEEPER,
@@ -422,7 +423,7 @@ contract BuyBack {
     //                  CORE
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    function topUpKeeper() public {
+    function topUpKeeper() public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
         uint256 _keeperAmount = uniV3Swap(USDC, WETH, 500, keeper, true);
@@ -442,7 +443,7 @@ contract BuyBack {
         keeper = 0;
     }
 
-    function sendToTreasury() public {
+    function sendToTreasury() public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
         uint256 _treasury = treasury;
@@ -451,7 +452,7 @@ contract BuyBack {
         treasury = 0;
     }
 
-    function burnTokens() public {
+    function burnTokens() public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
         uint256 _burner = burner;
@@ -488,7 +489,7 @@ contract BuyBack {
         }
     }
 
-    function sellTokens(address _token) public {
+    function sellTokens(address _token) public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
 
