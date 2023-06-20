@@ -377,6 +377,7 @@ contract BuyBack is IBuyBack {
     function canSendToTreasury() public view override returns (bool) {
         if (ERC20(USDC).balanceOf(address(this)) > MIN_SEND_TO_TREASURY)
             return true;
+        return false;
     }
 
     function canBurnTokens() public view override returns (bool) {
@@ -386,6 +387,7 @@ contract BuyBack is IBuyBack {
         ) {
             return true;
         }
+        return false;
     }
 
     function canTopUpKeeper() public view override returns (bool) {
@@ -399,6 +401,7 @@ contract BuyBack is IBuyBack {
         ) {
             return true;
         }
+        return false;
     }
 
     function topUpAvailable() public view returns (uint256) {
@@ -412,7 +415,7 @@ contract BuyBack is IBuyBack {
         view
         returns (address token, bool treasury, bool burn, bool topUp)
     {
-        address token = canSellToken();
+        token = canSellToken();
 
         treasury = canSendToTreasury();
         burn = canBurnTokens();

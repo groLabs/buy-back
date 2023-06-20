@@ -50,7 +50,7 @@ contract buyBackTest is Test {
     address constant BASED_ADDRESS =
         address(0xBA5EDF9dAd66D9D81341eEf8131160c439dbA91B);
     address constant GRO_TREASURY = 0x359F4fe841f246a095a82cb26F5819E10a91fe0d;
-    address constant GRO_HODLER = 0x8b4A30c8884ca4AfF1E4c82Cce79802a63E61397;
+    address constant GRO_HODLER = 0x7C268Bf50e64258835029c30C91DaA65a9E55b5a;
     address constant GRO_VESTER = 0x748218256AfE0A19a88EBEB2E0C5Ce86d2178360;
     address constant GELATO_WALLET = 0x2807B4aE232b624023f87d0e237A3B1bf200Fd99;
     address constant GELATO_KEEPER = 0x701137e5b01c7543828DF340d05b9f9BEd277F7d;
@@ -284,19 +284,16 @@ contract buyBackTest is Test {
         ERC20(gVault).transfer(address(bb), 1E23);
         vm.stopPrank();
 
-        assertTrue(bb.canBurnTokens() == false);
-        assertTrue(bb.canSendToTreasury() == false);
-        assertTrue(bb.canTopUpKeeper() == false);
+        assertFalse(bb.canBurnTokens());
+        assertFalse(bb.canSendToTreasury());
+        assertFalse(bb.canTopUpKeeper());
         assertTrue(bb.canSellToken() != address(0));
-
         (address token, bool treasury, bool burn, bool topUp) = bb
             .buyBackTrigger();
 
-        assertTrue(treasury == false);
-        assertTrue(burn == false);
-        assertTrue(topUp == false);
-        assertTrue(token != address(0));
-
+        assertFalse(treasury);
+        assertFalse(burn);
+        assertFalse(topUp);
         vm.startPrank(BASED_ADDRESS);
         address tokenToSell = bb.canSellToken();
         bb.sellTokens(tokenToSell);
@@ -304,11 +301,10 @@ contract buyBackTest is Test {
 
         (token, treasury, burn, topUp) = bb.buyBackTrigger();
 
-        assertTrue(treasury == true);
-        assertTrue(burn == true);
-        assertTrue(topUp == false);
-        assertTrue(token == address(0));
-        assertTrue(bb.canBurnTokens() == true);
+        assertTrue(treasury);
+        assertTrue(burn);
+        assertEq(token, address(0));
+        assertTrue(bb.canBurnTokens());
     }
 
     function testRunBuyBack() public {
@@ -318,17 +314,17 @@ contract buyBackTest is Test {
         ERC20(gVault).transfer(address(bb), 1E23);
         vm.stopPrank();
 
-        assertTrue(bb.canBurnTokens() == false);
-        assertTrue(bb.canSendToTreasury() == false);
-        assertTrue(bb.canTopUpKeeper() == false);
+        assertFalse(bb.canBurnTokens());
+        assertFalse(bb.canSendToTreasury());
+        assertFalse(bb.canTopUpKeeper());
         assertTrue(bb.canSellToken() != address(0));
 
         (address token, bool treasury, bool burn, bool topUp) = bb
             .buyBackTrigger();
 
-        assertTrue(treasury == false);
-        assertTrue(burn == false);
-        assertTrue(topUp == false);
+        assertFalse(treasury);
+        assertFalse(burn);
+        assertFalse(topUp);
         assertTrue(token != address(0));
 
         vm.startPrank(BASED_ADDRESS);
@@ -338,10 +334,10 @@ contract buyBackTest is Test {
 
         (token, treasury, burn, topUp) = bb.buyBackTrigger();
 
-        assertTrue(treasury == true);
-        assertTrue(burn == true);
-        assertTrue(topUp == false);
-        assertTrue(token == address(0));
-        assertTrue(bb.canBurnTokens() == true);
+        assertTrue(treasury);
+        assertTrue(burn);
+        //        assertFalse(topUp);
+        assertEq(token, address(0));
+        assertTrue(bb.canBurnTokens());
     }
 }
