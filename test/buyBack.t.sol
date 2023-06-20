@@ -1,10 +1,11 @@
 // spdx-license-identifier: unlicensed
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.12;
 
 import "forge-std/Test.sol";
 import "forge-std/Vm.sol";
 import "./utils/utils.sol";
 import "../src/BuyBack.sol";
+import "../src/Resolver.sol";
 import "../src/mocks/MockERC4626.sol";
 import "forge-std/console2.sol";
 
@@ -58,13 +59,37 @@ contract buyBackTest is Test {
     address constant ZERO = address(0x0000000000000000000000000000000000000000);
     uint256 constant MAX_UINT = type(uint256).max;
 
-    MockERC4624 gVault;
-    BuyBack bb;
+    MockERC4624 public gVault;
+    BuyBack public bb;
+    BuyBackResolver public resolver;
 
     Utils internal utils;
 
     address payable[] internal users;
     address internal alice;
+
+    function setUp() public {
+        utils = new Utils();
+        users = utils.createUsers(1);
+
+        alice = users[0];
+        vm.label(alice, "Alice");
+
+        vm.startPrank(BASED_ADDRESS);
+
+        gVault = new MockERC4624(THREE_POOL_TOKEN, "test vault", "TV", 18);
+        bb = new BuyBack();
+
+        bb.setKeeper(BASED_ADDRESS);
+        bb.setTokenDistribution(3000, 5000, 2000);
+        bb.setToken(address(USDC), ZERO, type(uint256).max, 1, 500);
+        bb.setToken(address(GRO), ZERO, 1000e18, 0, 0);
+        bb.setToken(address(gVault), address(gVault), 1000e18, 2, 0);
+        bb.setToken(address(THREE_POOL_TOKEN), ZERO, 1000e18, 2, 0);
+
+        resolver = new BuyBackResolver(address(bb));
+        vm.stopPrank();
+    }
 
     function findStorage(
         address _user,
@@ -144,28 +169,6 @@ contract buyBackTest is Test {
         vm.startPrank(_user);
         THREE_POOL_TOKEN.approve(address(gVault), balance);
         shares = gVault.deposit(_user, balance);
-        vm.stopPrank();
-    }
-
-    function setUp() public {
-        utils = new Utils();
-        users = utils.createUsers(1);
-
-        alice = users[0];
-        vm.label(alice, "Alice");
-
-        vm.startPrank(BASED_ADDRESS);
-
-        gVault = new MockERC4624(THREE_POOL_TOKEN, "test vault", "TV", 18);
-        bb = new BuyBack();
-
-        bb.setKeeper(BASED_ADDRESS);
-        bb.setTokenDistribution(3000, 5000, 2000);
-        bb.setToken(address(USDC), ZERO, type(uint256).max, 1, 500);
-        bb.setToken(address(GRO), ZERO, 1000e18, 0, 0);
-        bb.setToken(address(gVault), address(gVault), 1000e18, 2, 0);
-        bb.setToken(address(THREE_POOL_TOKEN), ZERO, 1000e18, 2, 0);
-
         vm.stopPrank();
     }
 
@@ -315,8 +318,20 @@ contract buyBackTest is Test {
         vm.stopPrank();
 
         assertFalse(bb.canBurnTokens());
+        // Make sure resolver triggers are aligned with bb triggers
+        (bool canExec, ) = resolver.canBurnTokens();
+        assertFalse(canExec);
         assertFalse(bb.canSendToTreasury());
+
+        (canExec, ) = resolver.canSendToTreasury();
+        assertFalse(canExec);
+
+        (canExec, ) = resolver.canTopUpKeeper();
+        assertFalse(canExec);
         assertFalse(bb.canTopUpKeeper());
+        // Make sure we can sell tokens now
+        (canExec, ) = resolver.canSellTokens();
+        assertTrue(canExec);
         assertTrue(bb.canSellToken() != address(0));
 
         (address token, bool treasury, bool burn, bool topUp) = bb
@@ -334,10 +349,18 @@ contract buyBackTest is Test {
 
         (token, treasury, burn, topUp) = bb.buyBackTrigger();
 
+        (canExec, ) = resolver.canSendToTreasury();
+        assertTrue(canExec);
         assertTrue(treasury);
+
+        (canExec, ) = resolver.canBurnTokens();
+        assertTrue(canExec);
         assertTrue(burn);
-        //        assertFalse(topUp);
+
+        (canExec, ) = resolver.canSellTokens();
+        assertFalse(canExec);
         assertEq(token, address(0));
+
         assertTrue(bb.canBurnTokens());
     }
 }
