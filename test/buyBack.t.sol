@@ -363,4 +363,29 @@ contract buyBackTest is Test {
 
         assertTrue(bb.canBurnTokens());
     }
+
+    function testSweep() public {
+        depositIntoVault(alice, 1E26);
+        vm.startPrank(alice);
+
+        ERC20(gVault).transfer(address(bb), 1E23);
+        vm.stopPrank();
+
+        uint256 initialBalance = ERC20(gVault).balanceOf(BASED_ADDRESS);
+        uint256 balanceOfBB = ERC20(gVault).balanceOf(address(bb));
+        vm.startPrank(BASED_ADDRESS);
+        bb.sweep(address(gVault));
+        vm.stopPrank();
+        // Make sure all tokens are swept into the based address
+        assertEq(ERC20(gVault).balanceOf(BASED_ADDRESS), balanceOfBB);
+    }
+
+    function testSweepNotOwner() public {
+        depositIntoVault(alice, 1E26);
+        vm.startPrank(alice);
+        ERC20(gVault).transfer(address(bb), 1E23);
+        vm.stopPrank();
+        vm.expectRevert("UNAUTHORIZED");
+        bb.sweep(address(gVault));
+    }
 }

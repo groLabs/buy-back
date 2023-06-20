@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {Owned} from "solmate/auth/Owned.sol";
 import {ERC4626} from "./interfaces/ERC4626.sol";
 import {IBuyBack} from "./interfaces/IBuyBack.sol";
 
@@ -175,7 +176,7 @@ interface IWETH9 {
 //                  BUY BACK CONTRACT
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-contract BuyBack is IBuyBack {
+contract BuyBack is IBuyBack, Owned {
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  CONSTANTS
     ////////////////////////////////////////////////////////////////////////////////////////////
@@ -255,7 +256,6 @@ contract BuyBack is IBuyBack {
     // list of tokens
     address[] public tokens;
     mapping(address => tokenData) tokenInfo;
-    address owner;
 
     mapping(address => bool) public keepers;
     distributionSplit public tokenDistribution;
@@ -287,8 +287,7 @@ contract BuyBack is IBuyBack {
     //                  CONSTRUCTOR
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    constructor() {
-        owner = msg.sender;
+    constructor() Owned(msg.sender) {
         ERC20(GRO).approve(GRO_BURNER, type(uint256).max);
     }
 
@@ -640,5 +639,13 @@ contract BuyBack is IBuyBack {
 
     fallback() external payable {
         emit LogDepositReceived(msg.sender, msg.value);
+    }
+
+    /// @notice This function is used to sweep any tokens that are stuck in the contract
+    function sweep(address asset) external onlyOwner {
+        ERC20(asset).transfer(
+            msg.sender,
+            ERC20(asset).balanceOf(address(this))
+        );
     }
 }
