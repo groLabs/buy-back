@@ -632,8 +632,7 @@ contract BuyBack is IBuyBack, Owned {
     //                  FALLBACK
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    function receive() external payable {
-        require(msg.data.length == 0);
+    receive() external payable {
         emit LogDepositReceived(msg.sender, msg.value);
     }
 

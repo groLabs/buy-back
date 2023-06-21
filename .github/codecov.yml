@@ -1,6 +1,4 @@
 ignore:
   - "lib"
   - "test"
-  - "test/BaseFixture.sol"
-  - "test/Utils.sol"
   - "src/mocks"

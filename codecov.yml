@@ -1,0 +1,6 @@
+ignore:
+  - "lib"
+  - "test"
+  - "src/mocks/*"
+  - "test/buyBack.t.sol"
+  - "test/utils/utils.sol"
