@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.12;
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {Owned} from "solmate/auth/Owned.sol";
 import {ERC4626} from "./interfaces/ERC4626.sol";
+import {IBuyBack} from "./interfaces/IBuyBack.sol";
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //                  LIBRARIES
@@ -10,13 +12,12 @@ import {ERC4626} from "./interfaces/ERC4626.sol";
 library BuyBackErrors {
     error NotOwner(); // 0x30cd7471
     error NotKeeper(); // 0xf512b278
-    error GelatoDepositFailed(); // 
+    error GelatoDepositFailed(); //
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //                  INTERFACES
 ////////////////////////////////////////////////////////////////////////////////////////////
-
 
 //////////////////////////////
 /// Gro token vesting interfaces
@@ -36,8 +37,16 @@ interface IVester {
 
 /// Gelato top up wallet interface
 interface IGelatoTopUp {
-    function depositFunds(address _receiver, address _token, uint256 _amount) external;
-    function userTokenBalance(address _user, address _token) external view returns (uint256);
+    function depositFunds(
+        address _receiver,
+        address _token,
+        uint256 _amount
+    ) external;
+
+    function userTokenBalance(
+        address _user,
+        address _token
+    ) external view returns (uint256);
 }
 
 //////////////////////////////
@@ -47,7 +56,10 @@ interface IGelatoTopUp {
 interface ICurve3Pool {
     function get_virtual_price() external view returns (uint256);
 
-    function calc_withdraw_one_coin(uint256 _token_amount, int128 i) external view returns (uint256);
+    function calc_withdraw_one_coin(
+        uint256 _token_amount,
+        int128 i
+    ) external view returns (uint256);
 
     function remove_liquidity_one_coin(
         uint256 _token_amount,
@@ -59,15 +71,18 @@ interface ICurve3Pool {
 }
 
 interface IUniFactory {
-    function getPair(address _tokenA, address _tokenB) external view returns (address);
+    function getPair(
+        address _tokenA,
+        address _tokenB
+    ) external view returns (address);
 }
 
 /// Uniswap v2 router interface
 interface IUniV2 {
-    function getAmountsOut(uint256 amountIn, address[] calldata path)
-        external
-        view
-        returns (uint256[] memory amounts);
+    function getAmountsOut(
+        uint256 amountIn,
+        address[] calldata path
+    ) external view returns (uint256[] memory amounts);
 
     function swapExactTokensForTokens(
         uint256 amountIn,
@@ -88,10 +103,9 @@ interface IUniV3 {
         uint256 amountOutMinimum;
     }
 
-    function exactInput(ExactInputParams calldata params)
-        external
-        payable
-        returns (uint256 amountOut);
+    function exactInput(
+        ExactInputParams calldata params
+    ) external payable returns (uint256 amountOut);
 }
 
 /// Uniswap v3 pool interface
@@ -118,7 +132,7 @@ interface IWETH9 {
     function deposit() external payable;
 
     /// @notice Withdraw wrapped ether to get ether
-    function withdraw(uint256) external;         
+    function withdraw(uint256) external;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,12 +176,15 @@ interface IWETH9 {
 //                  BUY BACK CONTRACT
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-contract BuyBack {
-
+contract BuyBack is IBuyBack, Owned {
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  CONSTANTS
     ////////////////////////////////////////////////////////////////////////////////////////////
-    enum AMM{ UNIv2, UNIv3, CURVE }
+    enum AMM {
+        UNIv2,
+        UNIv3,
+        CURVE
+    }
 
     uint256 constant KEEPER_MIN_ETH = 2E17;
     uint256 constant MIN_TOPUP_ETH = 5E17;
@@ -181,8 +198,8 @@ contract BuyBack {
 
     /// Gelato addresses
     address constant GELATO_WALLET = 0x2807B4aE232b624023f87d0e237A3B1bf200Fd99;
-    address constant GELATO_KEEPER = 0x701137e5b01c7543828DF340d05b9f9BEd277F7d; 
-    address constant GELATO_ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE; 
+    address constant GELATO_KEEPER = 0x701137e5b01c7543828DF340d05b9f9BEd277F7d;
+    address constant GELATO_ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// Gro addresses
     address constant GRO_TREASURY = 0x359F4fe841f246a095a82cb26F5819E10a91fe0d;
@@ -211,7 +228,7 @@ contract BuyBack {
         address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
     address internal constant USDC_ETH_V3 =
         address(0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640);
-    
+
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  CONTRACT VARIABLES
     ////////////////////////////////////////////////////////////////////////////////////////////
@@ -239,7 +256,6 @@ contract BuyBack {
     // list of tokens
     address[] public tokens;
     mapping(address => tokenData) tokenInfo;
-    address owner;
 
     mapping(address => bool) public keepers;
     distributionSplit public tokenDistribution;
@@ -247,20 +263,31 @@ contract BuyBack {
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  EVENTS
     ////////////////////////////////////////////////////////////////////////////////////////////
-    event LogNewTokenAdded(address token, address wrapped, uint256 minSellAmount, AMM amm, uint24 fee);
+    event LogNewTokenAdded(
+        address token,
+        address wrapped,
+        uint256 minSellAmount,
+        AMM amm,
+        uint24 fee
+    );
     event LogTokenRemoved(address token);
-    event tokenSold(address token, uint256 amountToSell, uint256 amountToTreasury, uint256 amountToKeeper, uint256 amountToBurner);
+    event tokenSold(
+        address token,
+        uint256 amountToSell,
+        uint256 amountToTreasury,
+        uint256 amountToKeeper,
+        uint256 amountToBurner
+    );
     event TopUpKeeper(uint256 tokenAmount);
     event SendToTreasury(uint256 tokenAmount);
     event BurnTokens(uint256 tokenAmount, uint256 groAmount);
-    event LogDepositReceived(address sender, uint256 value); 
+    event LogDepositReceived(address sender, uint256 value);
 
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  CONSTRUCTOR
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    constructor() {
-        owner = msg.sender;
+    constructor() Owned(msg.sender) {
         ERC20(GRO).approve(GRO_BURNER, type(uint256).max);
     }
 
@@ -269,24 +296,34 @@ contract BuyBack {
     ////////////////////////////////////////////////////////////////////////////////////////////
 
     function setKeeper(address _keeper) external {
-        if(msg.sender != owner) revert BuyBackErrors.NotOwner();
+        if (msg.sender != owner) revert BuyBackErrors.NotOwner();
         keepers[_keeper] = true;
     }
 
     function revokeKeeper(address _keeper) external {
-        if(msg.sender != owner) revert BuyBackErrors.NotOwner();
+        if (msg.sender != owner) revert BuyBackErrors.NotOwner();
         keepers[_keeper] = false;
     }
 
-    function setTokenDistribution(uint16 _treasury, uint16 _burner, uint16 _keeper) external {
-        if(msg.sender != owner) revert BuyBackErrors.NotOwner();
+    function setTokenDistribution(
+        uint16 _treasury,
+        uint16 _burner,
+        uint16 _keeper
+    ) external {
+        if (msg.sender != owner) revert BuyBackErrors.NotOwner();
         tokenDistribution.treasury = _treasury;
         tokenDistribution.burner = _burner;
         tokenDistribution.keeper = _keeper;
     }
 
-    function setToken(address _token, address _wrapped, uint256 _minSellAmount, uint8 _amm, uint24 _fee) external {
-        if(msg.sender != owner) revert BuyBackErrors.NotOwner();
+    function setToken(
+        address _token,
+        address _wrapped,
+        uint256 _minSellAmount,
+        uint8 _amm,
+        uint24 _fee
+    ) external {
+        if (msg.sender != owner) revert BuyBackErrors.NotOwner();
         tokens.push(_token);
         AMM amm = AMM(_amm);
         tokenData memory tokenI = tokenData(
@@ -305,11 +342,11 @@ contract BuyBack {
     }
 
     function removeToken(address _token) external {
-        if(msg.sender != owner) revert BuyBackErrors.NotOwner();
+        if (msg.sender != owner) revert BuyBackErrors.NotOwner();
 
         uint256 noOfTokens = tokens.length;
         for (uint256 i = 0; i < noOfTokens - 1; i++) {
-            if(tokens[i] == _token) {
+            if (tokens[i] == _token) {
                 tokens[i] = tokens[noOfTokens - 1];
                 tokens.pop();
                 delete tokenInfo[_token];
@@ -321,32 +358,49 @@ contract BuyBack {
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  TRIGGERS
     ////////////////////////////////////////////////////////////////////////////////////////////
-    
-    function canSellToken() public view returns (address) {
+
+    function canSellToken() public view override returns (address) {
         uint256 noOfTokens = tokens.length;
         address token;
         for (uint256 i = 0; i < noOfTokens - 1; i++) {
             token = tokens[i];
-            if(ERC20(token).balanceOf(address(this)) > tokenInfo[token].minSellAmount) {
+            if (
+                ERC20(token).balanceOf(address(this)) >
+                tokenInfo[token].minSellAmount
+            ) {
                 return token;
             }
         }
     }
-    
-    function canSendToTreasury() public view returns (bool) {
-        if (ERC20(USDC).balanceOf(address(this)) > MIN_SEND_TO_TREASURY) return true;
+
+    function canSendToTreasury() public view override returns (bool) {
+        if (ERC20(USDC).balanceOf(address(this)) > MIN_SEND_TO_TREASURY)
+            return true;
+        return false;
     }
 
-    function canBurnTokens() public view returns (bool) {
-        if (getPriceV2(USDC, GRO, ERC20(USDC).balanceOf(address(this))) > MIN_BURN) {
+    function canBurnTokens() public view override returns (bool) {
+        if (
+            getPriceV2(USDC, GRO, ERC20(USDC).balanceOf(address(this))) >
+            MIN_BURN
+        ) {
             return true;
         }
+        return false;
     }
 
-    function canTopUpKeeper() public view returns (bool) {
-        if (IGelatoTopUp(GELATO_WALLET).userTokenBalance(GELATO_KEEPER, GELATO_ETH) < KEEPER_MIN_ETH && topUpAvailable() > MIN_TOPUP_ETH) {
+    function canTopUpKeeper() public view override returns (bool) {
+        if (
+            IGelatoTopUp(GELATO_WALLET).userTokenBalance(
+                GELATO_KEEPER,
+                GELATO_ETH
+            ) <
+            KEEPER_MIN_ETH &&
+            topUpAvailable() > MIN_TOPUP_ETH
+        ) {
             return true;
         }
+        return false;
     }
 
     function topUpAvailable() public view returns (uint256) {
@@ -355,8 +409,12 @@ contract BuyBack {
         return balance;
     }
 
-    function buyBackTrigger() external view returns (address token, bool treasury, bool burn, bool topUp) {
-		address token = canSellToken();
+    function buyBackTrigger()
+        external
+        view
+        returns (address token, bool treasury, bool burn, bool topUp)
+    {
+        token = canSellToken();
 
         treasury = canSendToTreasury();
         burn = canBurnTokens();
@@ -367,26 +425,38 @@ contract BuyBack {
     //                  CORE
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    function topUpKeeper() public {
-        if(msg.sender != owner || !keepers[msg.sender]) revert BuyBackErrors.NotKeeper();
+    function topUpKeeper() public override {
+        if (msg.sender != owner || !keepers[msg.sender])
+            revert BuyBackErrors.NotKeeper();
         uint256 _keeperAmount = uniV3Swap(USDC, WETH, 500, keeper, true);
         if (_keeperAmount == 0) return;
-        (bool success, bytes memory result) = GELATO_WALLET.call{value: _keeperAmount}(abi.encodeWithSignature("depositFunds(address,address,uint256)", GELATO_KEEPER, GELATO_ETH, _keeperAmount));
-        if(!success) revert BuyBackErrors.GelatoDepositFailed();
+        (bool success, bytes memory result) = GELATO_WALLET.call{
+            value: _keeperAmount
+        }(
+            abi.encodeWithSignature(
+                "depositFunds(address,address,uint256)",
+                GELATO_KEEPER,
+                GELATO_ETH,
+                _keeperAmount
+            )
+        );
+        if (!success) revert BuyBackErrors.GelatoDepositFailed();
         emit TopUpKeeper(_keeperAmount);
         keeper = 0;
     }
 
-    function sendToTreasury() public {
-        if(msg.sender != owner || !keepers[msg.sender]) revert BuyBackErrors.NotKeeper();
+    function sendToTreasury() public override {
+        if (msg.sender != owner || !keepers[msg.sender])
+            revert BuyBackErrors.NotKeeper();
         uint256 _treasury = treasury;
         ERC20(USDC).transfer(GRO_TREASURY, _treasury);
         emit SendToTreasury(_treasury);
         treasury = 0;
     }
 
-    function burnTokens() public {
-        if(msg.sender != owner || !keepers[msg.sender]) revert BuyBackErrors.NotKeeper();
+    function burnTokens() public override {
+        if (msg.sender != owner || !keepers[msg.sender])
+            revert BuyBackErrors.NotKeeper();
         uint256 _burner = burner;
         uint256 amount = uniV2Swap(USDC, GRO, _burner);
         IBurner(GRO_BURNER).reVest(amount);
@@ -395,59 +465,92 @@ contract BuyBack {
         burner = 0;
     }
 
-    function _unwrapToken(uint256 _amount, address _token, address _wrapper) internal returns (uint256, address) {
+    function _unwrapToken(
+        uint256 _amount,
+        address _token,
+        address _wrapper
+    ) internal returns (uint256, address) {
         ERC4626 wrapper = ERC4626(_wrapper);
         address asset = address(wrapper.asset());
         uint256 amount = wrapper.redeem(_amount, address(this), address(this));
         return (amount, asset);
     }
 
-    function _sellTokens(address _token, uint256 _amount, AMM _amm, uint24 _fee) internal returns (uint256 amount) {
-        if  (_amm == AMM.CURVE) {
+    function _sellTokens(
+        address _token,
+        uint256 _amount,
+        AMM _amm,
+        uint24 _fee
+    ) internal returns (uint256 amount) {
+        if (_amm == AMM.CURVE) {
             amount = curveSwap(_amount);
         } else if (_amm == AMM.UNIv2) {
             amount = uniV2Swap(_token, USDC, _amount);
-        } else  if (_amm == AMM.UNIv3) {
+        } else if (_amm == AMM.UNIv3) {
             amount = uniV3Swap(_token, USDC, _fee, _amount, false);
         }
     }
 
-    function sellTokens(address _token) public {
-        if(msg.sender != owner || !keepers[msg.sender]) revert BuyBackErrors.NotKeeper();
+    function sellTokens(address _token) public override {
+        if (msg.sender != owner || !keepers[msg.sender])
+            revert BuyBackErrors.NotKeeper();
 
         uint256 amountToSell = ERC20(_token).balanceOf(address(this));
         tokenData memory tokenI = tokenInfo[_token];
-        if(amountToSell < tokenI.minSellAmount) return;
+        if (amountToSell < tokenI.minSellAmount) return;
 
         address wrapper = tokenI.wrapped;
-        if (wrapper != address(0)) (amountToSell, _token) =  _unwrapToken(amountToSell, _token, wrapper);
-        uint256 amount = _sellTokens(_token, amountToSell, tokenI.amm, tokenI.fee);
-        uint256 amountToTreasury = amount * tokenDistribution.treasury / BP;
-        uint256 amountToBurner = amount * tokenDistribution.burner / BP; 
+        if (wrapper != address(0))
+            (amountToSell, _token) = _unwrapToken(
+                amountToSell,
+                _token,
+                wrapper
+            );
+        uint256 amount = _sellTokens(
+            _token,
+            amountToSell,
+            tokenI.amm,
+            tokenI.fee
+        );
+        uint256 amountToTreasury = (amount * tokenDistribution.treasury) / BP;
+        uint256 amountToBurner = (amount * tokenDistribution.burner) / BP;
         uint256 amountToKeeper = amount - (amountToTreasury + amountToBurner);
 
         treasury += amountToTreasury;
         burner += amountToBurner;
         keeper += amountToKeeper;
 
-        emit tokenSold(_token, amountToSell, amountToTreasury, amountToKeeper, amountToBurner);
+        emit tokenSold(
+            _token,
+            amountToSell,
+            amountToTreasury,
+            amountToKeeper,
+            amountToBurner
+        );
     }
 
-    function runBuyBack(address _token, bool _burn, bool _treasury, bool _topUp) external returns (bool) {
+    function runBuyBack(
+        address _token,
+        bool _burn,
+        bool _treasury,
+        bool _topUp
+    ) external returns (bool) {
         sellTokens(_token);
         if (_burn) burnTokens();
-        if (_treasury) sendToTreasury(); 
+        if (_treasury) sendToTreasury();
         if (_topUp) topUpKeeper();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  UTILITY
     ////////////////////////////////////////////////////////////////////////////////////////////
-    
-    function getPriceCurve(
-        uint256 _amount
-    ) public view returns (uint256) {
-        return ICurve3Pool(THREE_POOL).calc_withdraw_one_coin(_amount, USDC_CRV_INDEX);
+
+    function getPriceCurve(uint256 _amount) public view returns (uint256) {
+        return
+            ICurve3Pool(THREE_POOL).calc_withdraw_one_coin(
+                _amount,
+                USDC_CRV_INDEX
+            );
     }
 
     function getPriceV2(
@@ -460,10 +563,7 @@ contract BuyBack {
         path[0] = _start;
         path[1] = _end;
 
-        uint256[] memory uniSwap = IUniV2(UNI_V2).getAmountsOut(
-            _amount,
-            path
-        );
+        uint256[] memory uniSwap = IUniV2(UNI_V2).getAmountsOut(_amount, path);
         return uniSwap[uniSwap.length - 1];
     }
 
@@ -471,12 +571,17 @@ contract BuyBack {
         (uint160 sqrtPriceX96, , , , , , ) = IUniV3_POOL(USDC_ETH_V3).slot0();
         price = ((2 ** 192 * DEFAULT_DECIMALS_FACTOR) /
             uint256(sqrtPriceX96) ** 2);
-        return _amount * 1E18 / price;
+        return (_amount * 1E18) / price;
     }
 
-    function uniV2Swap(address _start, address _end, uint256 _amount) internal returns (uint256) {
+    function uniV2Swap(
+        address _start,
+        address _end,
+        uint256 _amount
+    ) internal returns (uint256) {
         if (_amount == 0) return 0;
-        if (ERC20(_start).allowance(address(this), UNI_V2) == 0) ERC20(_start).approve(UNI_V2, _amount);
+        if (ERC20(_start).allowance(address(this), UNI_V2) == 0)
+            ERC20(_start).approve(UNI_V2, _amount);
         address[] memory path = new address[](2);
         path[0] = _start;
         path[1] = _end;
@@ -491,7 +596,13 @@ contract BuyBack {
         return swap[1];
     }
 
-    function uniV3Swap(address _start, address _end, uint24 _fees, uint256 _amount, bool _eth) internal returns (uint256 amount) {
+    function uniV3Swap(
+        address _start,
+        address _end,
+        uint24 _fees,
+        uint256 _amount,
+        bool _eth
+    ) internal returns (uint256 amount) {
         if (_amount == 0) return 0;
         amount = IUniV3(UNI_V3).exactInput(
             IUniV3.ExactInputParams(
@@ -521,12 +632,20 @@ contract BuyBack {
     //                  FALLBACK
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    function receive() payable external {
+    function receive() external payable {
         require(msg.data.length == 0);
-        emit LogDepositReceived(msg.sender, msg.value); 
+        emit LogDepositReceived(msg.sender, msg.value);
     }
 
-    fallback() payable external {
-        emit LogDepositReceived(msg.sender, msg.value); 
+    fallback() external payable {
+        emit LogDepositReceived(msg.sender, msg.value);
+    }
+
+    /// @notice This function is used to sweep any tokens that are stuck in the contract
+    function sweep(address asset) external onlyOwner {
+        ERC20(asset).transfer(
+            msg.sender,
+            ERC20(asset).balanceOf(address(this))
+        );
     }
 }
