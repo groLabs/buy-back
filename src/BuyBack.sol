@@ -254,7 +254,7 @@ contract BuyBack is IBuyBack, Owned {
         if (msg.sender != owner) revert BuyBackErrors.NotOwner();
 
         uint256 noOfTokens = tokens.length;
-        for (uint256 i = 0; i < noOfTokens - 1; i++) {
+        for (uint256 i = 0; i < noOfTokens; i++) {
             if (tokens[i] == _token) {
                 tokens[i] = tokens[noOfTokens - 1];
                 tokens.pop();
@@ -468,6 +468,10 @@ contract BuyBack is IBuyBack, Owned {
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  UTILITY
     ////////////////////////////////////////////////////////////////////////////////////////////
+
+    function getToken(address _token) external view returns (tokenData memory) {
+        return tokenInfo[_token];
+    }
 
     /// @notice Fetch price from Uniswap V2
     /// @param _start address of token to sell

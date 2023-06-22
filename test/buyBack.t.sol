@@ -172,6 +172,90 @@ contract buyBackTest is Test {
         vm.stopPrank();
     }
 
+    ////////////////////////////////
+    //        Utility Tests       //
+    ////////////////////////////////
+
+    function testCanSetTokens() public {
+        vm.startPrank(BASED_ADDRESS);
+        bb.setToken(
+            address(0x514910771AF9Ca656af840dff83E8264EcF986CA),
+            ZERO,
+            type(uint256).max,
+            1,
+            500
+        );
+        vm.stopPrank();
+        // Make sure token is set
+        BuyBack.tokenData memory tokenInfo = bb.getToken(
+            address(0x514910771AF9Ca656af840dff83E8264EcF986CA)
+        );
+        assertEq(tokenInfo.wrapped, ZERO);
+        assertEq(tokenInfo.minSellAmount, type(uint256).max);
+        assertEq(tokenInfo.fee, 500);
+    }
+
+    function testCannotSetTokensIfNotKeeper() public {
+        vm.startPrank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(BuyBackErrors.NotOwner.selector)
+        );
+        bb.setToken(address(USDC), ZERO, type(uint256).max, 1, 500);
+        vm.stopPrank();
+    }
+
+    function testCanRemoveTokens() public {
+        vm.startPrank(BASED_ADDRESS);
+        bb.setToken(
+            address(0x514910771AF9Ca656af840dff83E8264EcF986CA),
+            ZERO,
+            type(uint256).max,
+            1,
+            500
+        );
+        bb.removeToken(address(0x514910771AF9Ca656af840dff83E8264EcF986CA));
+        vm.stopPrank();
+        // Make sure token is removed
+        BuyBack.tokenData memory tokenInfo = bb.getToken(
+            address(0x514910771AF9Ca656af840dff83E8264EcF986CA)
+        );
+        assertEq(tokenInfo.wrapped, ZERO);
+        assertEq(tokenInfo.fee, 0);
+        assertEq(tokenInfo.minSellAmount, 0);
+    }
+
+    function testCannotRemoveTokensIfNotKeeper() public {
+        vm.startPrank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(BuyBackErrors.NotOwner.selector)
+        );
+        bb.removeToken(address(USDC));
+        vm.stopPrank();
+    }
+
+    function testSetTokenDistribution() public {
+        vm.startPrank(BASED_ADDRESS);
+        bb.setTokenDistribution(1000, 1000, 1000);
+        vm.stopPrank();
+        (uint16 treasury, uint16 keeper, uint16 burner) = bb
+            .tokenDistribution();
+        assertEq(treasury, 1000);
+        assertEq(keeper, 1000);
+        assertEq(burner, 1000);
+    }
+
+    function testCannotSetTokenDistributionIfNotKeeper() public {
+        vm.startPrank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(BuyBackErrors.NotOwner.selector)
+        );
+        bb.setTokenDistribution(1000, 1000, 1000);
+        vm.stopPrank();
+    }
+
+    ////////////////////////////////
+    //        Sell Tokens         //
+    ////////////////////////////////
     function testSellToken() public {
         assertTrue(bb.canSellToken() == ZERO);
         depositIntoVault(alice, 1E26);
