@@ -34,5 +34,5 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -vvv --fork-url ${{ secrets.ALCHEMY_RPC_URL }}
+          forge test -vvv --fork-url ${{ secrets.ALCHEMY_RPC_URL }} --fork-block-number 17533949
         id: test

@@ -39,7 +39,7 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge coverage --fork-url ${{ secrets.ALCHEMY_RPC_URL }} --report lcov
+          forge coverage --fork-url ${{ secrets.ALCHEMY_RPC_URL }} --fork-block-number 17533949 --report lcov
 
       - uses: codecov/codecov-action@v3
         with:
