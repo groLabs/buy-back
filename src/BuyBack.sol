@@ -4,6 +4,15 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {Owned} from "solmate/auth/Owned.sol";
 import {ERC4626} from "./interfaces/ERC4626.sol";
 import {IBuyBack} from "./interfaces/IBuyBack.sol";
+import {IBurner} from "./interfaces/IBurner.sol";
+import {IVester} from "./interfaces/IVester.sol";
+import {IGelatoTopUp} from "./interfaces/IGelatoTopUp.sol";
+import {ICurve3Pool} from "./interfaces/ICurve3Pool.sol";
+import {IUniFactory} from "./interfaces/IUniFactory.sol";
+import {IUniV2} from "./interfaces/IUniV2.sol";
+import {IUniV3} from "./interfaces/IUniV3.sol";
+import {IUniV3_POOL} from "./interfaces/IUniV3Pool.sol";
+import {IWETH9} from "./interfaces/IWETH9.sol";
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //                  LIBRARIES
@@ -13,126 +22,6 @@ library BuyBackErrors {
     error NotOwner(); // 0x30cd7471
     error NotKeeper(); // 0xf512b278
     error GelatoDepositFailed(); //
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////
-//                  INTERFACES
-////////////////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////
-/// Gro token vesting interfaces
-
-/// Gro burner interface - used to move gro tokens into the vesting contract
-interface IBurner {
-    function reVest(uint256 amount) external;
-}
-
-/// Gro Vester interface - used to move vesting tokens into the bonus contract
-interface IVester {
-    function exit(uint256 amount) external;
-}
-
-//////////////////////////////
-/// Gelato interface
-
-/// Gelato top up wallet interface
-interface IGelatoTopUp {
-    function depositFunds(
-        address _receiver,
-        address _token,
-        uint256 _amount
-    ) external;
-
-    function userTokenBalance(
-        address _user,
-        address _token
-    ) external view returns (uint256);
-}
-
-//////////////////////////////
-/// AMM and swapping interfaces
-
-/// Curve 3pool interface
-interface ICurve3Pool {
-    function get_virtual_price() external view returns (uint256);
-
-    function calc_withdraw_one_coin(
-        uint256 _token_amount,
-        int128 i
-    ) external view returns (uint256);
-
-    function remove_liquidity_one_coin(
-        uint256 _token_amount,
-        int128 i,
-        uint256 min_amount
-    ) external;
-
-    function balanceOf(address account) external view returns (uint256);
-}
-
-interface IUniFactory {
-    function getPair(
-        address _tokenA,
-        address _tokenB
-    ) external view returns (address);
-}
-
-/// Uniswap v2 router interface
-interface IUniV2 {
-    function getAmountsOut(
-        uint256 amountIn,
-        address[] calldata path
-    ) external view returns (uint256[] memory amounts);
-
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
-}
-
-/// Uniswap v3 router interface
-interface IUniV3 {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(
-        ExactInputParams calldata params
-    ) external payable returns (uint256 amountOut);
-}
-
-/// Uniswap v3 pool interface
-interface IUniV3_POOL {
-    function slot0()
-        external
-        view
-        returns (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint16 observationIndex,
-            uint16 observationCardinality,
-            uint16 observationCardinalityNext,
-            uint8 feeProtocol,
-            bool unlocked
-        );
-}
-
-//////////////////////////////
-/// Token interfaces
-
-interface IWETH9 {
-    /// @notice Deposit ether to get wrapped ether
-    function deposit() external payable;
-
-    /// @notice Withdraw wrapped ether to get ether
-    function withdraw(uint256) external;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -373,12 +262,14 @@ contract BuyBack is IBuyBack, Owned {
         }
     }
 
+    /// @notice returns bool if the contract can send to treasury if value of USDC > MIN_SEND_TO_TREASURY
     function canSendToTreasury() public view override returns (bool) {
         if (ERC20(USDC).balanceOf(address(this)) > MIN_SEND_TO_TREASURY)
             return true;
         return false;
     }
 
+    /// @notice returns bool if the contract can burn tokens if value of GRO denominated in USDC > MIN_BURN
     function canBurnTokens() public view override returns (bool) {
         if (
             getPriceV2(USDC, GRO, ERC20(USDC).balanceOf(address(this))) >
@@ -389,6 +280,8 @@ contract BuyBack is IBuyBack, Owned {
         return false;
     }
 
+    /// @notice returns bool if the contract can top up keeper if gelato wallet balance < KEEPER_MIN_ETH
+    /// and contract balance > MIN_TOPUP_ETH
     function canTopUpKeeper() public view override returns (bool) {
         if (
             IGelatoTopUp(GELATO_WALLET).userTokenBalance(
@@ -412,13 +305,18 @@ contract BuyBack is IBuyBack, Owned {
     function buyBackTrigger()
         external
         view
-        returns (address token, bool treasury, bool burn, bool topUp)
+        returns (
+            address tokenToSell,
+            bool canTreasury,
+            bool canBurn,
+            bool canTopUp
+        )
     {
-        token = canSellToken();
+        tokenToSell = canSellToken();
 
-        treasury = canSendToTreasury();
-        burn = canBurnTokens();
-        topUp = canTopUpKeeper();
+        canTreasury = canSendToTreasury();
+        canBurn = canBurnTokens();
+        canTopUp = canTopUpKeeper();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////

@@ -191,6 +191,26 @@ contract buyBackTest is Test {
         assertTrue(bb.canSellToken() == ZERO);
     }
 
+    function testSellTokenFuzz(uint256 amount) public {
+        vm.assume(amount > 1000e18);
+        vm.assume(amount < 1E30);
+        depositIntoVault(alice, amount);
+        vm.startPrank(alice);
+
+        ERC20(gVault).transfer(address(bb), amount);
+        vm.stopPrank();
+        address tokenToSell = bb.canSellToken();
+        assertTrue(tokenToSell != ZERO);
+        console2.log("tokenToSell", tokenToSell);
+        vm.startPrank(BASED_ADDRESS);
+        assertEq(USDC.balanceOf(address(bb)), 0);
+        bb.sellTokens(tokenToSell);
+        vm.stopPrank();
+
+        assertGt(USDC.balanceOf(address(bb)), 0);
+        assertEq(bb.canSellToken(), ZERO);
+    }
+
     function testSendToTreasury() public {
         depositIntoVault(alice, 1E26);
         vm.startPrank(alice);

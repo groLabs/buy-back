@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "prettier": "prettier --write 'src/*.sol' 'test/*.sol'",
-    "prettier-check": "prettier --check 'src/*.sol' 'test/*.sol'"
+    "prettier": "prettier --write 'src/*.sol' 'test/*.sol' 'src/interfaces/*.sol'",
+    "prettier-check": "prettier --check 'src/*.sol' 'test/*.sol' 'src/interfaces/*.sol"
   },
   "devDependencies": {
     "prettier": "^2.6.2",
