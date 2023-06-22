@@ -1,4 +1,6 @@
 ignore:
   - "lib"
   - "test"
-  - "src/mocks"
+  - "src/mocks/MockERC4626.sol"
+  - "test/buyBack.t.sol"
+  - "test/utils/utils.sol"
