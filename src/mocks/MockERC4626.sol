@@ -35,15 +35,14 @@ contract MockERC4624 is ERC20 {
     }
 
     function redeem(uint256 _amount, address _account, address _receiver) external returns (uint256) {
-        uint256 balance = convertToAssets(_amount);
+        uint256 amnt = convertToAssets(_amount);
         _burn(_account, _amount);
-        asset.transfer(_receiver, balance);
-        return(balance);
+        asset.transfer(_receiver, amnt);
+        return(amnt);
     }
 
     function deposit(address _account, uint256 _amount) external returns (uint256){
         asset.transferFrom(_account, address(this), _amount);
-        uint256 balance = convertToShares(_amount);
         _mint(_account, _amount);
         totalAssets += _amount;
         return _amount;

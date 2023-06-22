@@ -152,7 +152,7 @@ contract buyBackTest is Test {
         return THREE_POOL_TOKEN.balanceOf(_user);
     }
 
-    function genStable(uint256 amount, address token, address _user) public {
+    function genStable(address token, address _user) public {
         setStorage(
             _user,
             ERC20(token).balanceOf.selector,
@@ -391,7 +391,6 @@ contract buyBackTest is Test {
         ERC20(gVault).transfer(address(bb), 1E23);
         vm.stopPrank();
 
-        uint256 initialBalance = ERC20(gVault).balanceOf(BASED_ADDRESS);
         uint256 balanceOfBB = ERC20(gVault).balanceOf(address(bb));
         vm.startPrank(BASED_ADDRESS);
         bb.sweep(address(gVault));

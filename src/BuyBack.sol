@@ -75,10 +75,10 @@ contract BuyBack is IBuyBack, Owned {
         CURVE
     }
 
-    uint256 constant KEEPER_MIN_ETH = 2E17;
-    uint256 constant MIN_TOPUP_ETH = 5E17;
-    uint256 constant MIN_SEND_TO_TREASURY = 1E9;
-    uint256 constant MIN_BURN = 1E22;
+    uint256 public constant KEEPER_MIN_ETH = 2E17;
+    uint256 public constant MIN_TOPUP_ETH = 5E17;
+    uint256 public constant MIN_SEND_TO_TREASURY = 1E9;
+    uint256 public constant MIN_BURN = 1E22;
 
     /// crv pool usdc index
     int128 internal constant USDC_CRV_INDEX = 1;
@@ -86,14 +86,20 @@ contract BuyBack is IBuyBack, Owned {
     uint256 internal constant BP = 1E4;
 
     /// Gelato addresses
-    address constant GELATO_WALLET = 0x2807B4aE232b624023f87d0e237A3B1bf200Fd99;
-    address constant GELATO_KEEPER = 0x701137e5b01c7543828DF340d05b9f9BEd277F7d;
-    address constant GELATO_ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address internal constant GELATO_WALLET =
+        0x2807B4aE232b624023f87d0e237A3B1bf200Fd99;
+    address internal constant GELATO_KEEPER =
+        0x701137e5b01c7543828DF340d05b9f9BEd277F7d;
+    address internal constant GELATO_ETH =
+        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// Gro addresses
-    address constant GRO_TREASURY = 0x359F4fe841f246a095a82cb26F5819E10a91fe0d;
-    address constant GRO_BURNER = 0x1F09e308bb18795f62ea7B114041E12b426b8880;
-    address constant GRO_VESTER = 0x748218256AfE0A19a88EBEB2E0C5Ce86d2178360;
+    address public constant GRO_TREASURY =
+        0x359F4fe841f246a095a82cb26F5819E10a91fe0d;
+    address public constant GRO_BURNER =
+        0x1F09e308bb18795f62ea7B114041E12b426b8880;
+    address public constant GRO_VESTER =
+        0x748218256AfE0A19a88EBEB2E0C5Ce86d2178360;
 
     /// token addresses
     address internal constant WETH =
@@ -108,7 +114,8 @@ contract BuyBack is IBuyBack, Owned {
         ERC20(address(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490));
 
     /// AMM addresses
-    address constant THREE_POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
+    address internal constant THREE_POOL =
+        0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
     address internal constant UNI_V2 =
         address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address internal constant UNI_V3 =
@@ -122,9 +129,10 @@ contract BuyBack is IBuyBack, Owned {
     //                  CONTRACT VARIABLES
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    uint256 treasury;
-    uint256 burner;
-    uint256 keeper;
+    // keep track of the total amount of USDC
+    uint256 public treasury;
+    uint256 public burner;
+    uint256 public keeper;
 
     /// Percentage division between recievers of buy back actions
     ///     denoted in BP, should add up to 100%
@@ -144,7 +152,7 @@ contract BuyBack is IBuyBack, Owned {
 
     // list of tokens
     address[] public tokens;
-    mapping(address => tokenData) tokenInfo;
+    mapping(address => tokenData) public tokenInfo;
 
     mapping(address => bool) public keepers;
     distributionSplit public tokenDistribution;
@@ -194,6 +202,10 @@ contract BuyBack is IBuyBack, Owned {
         keepers[_keeper] = false;
     }
 
+    /// @notice sets the distribution of tokens between treasury, burner and keeper
+    /// @param _treasury percentage of tokens to be sent to treasury
+    /// @param _burner percentage of tokens to be sent to burner
+    /// @param _keeper percentage of tokens to be sent to keeper
     function setTokenDistribution(
         uint16 _treasury,
         uint16 _burner,
@@ -205,6 +217,12 @@ contract BuyBack is IBuyBack, Owned {
         tokenDistribution.keeper = _keeper;
     }
 
+    /// @notice adds token to list of tokens that can be sold
+    /// @param _token address of token to be added
+    /// @param _wrapped address of wrapped token
+    /// @param _minSellAmount minimum amount of token to be sold
+    /// @param _amm index of AMM to be used
+    /// @param _fee fee of AMM to be used
     function setToken(
         address _token,
         address _wrapped,
@@ -230,6 +248,8 @@ contract BuyBack is IBuyBack, Owned {
         emit LogNewTokenAdded(_token, _wrapped, _minSellAmount, amm, _fee);
     }
 
+    /// @notice removes token from list of tokens that can be sold
+    /// @param _token address of token to be removed
     function removeToken(address _token) external {
         if (msg.sender != owner) revert BuyBackErrors.NotOwner();
 
@@ -248,6 +268,8 @@ contract BuyBack is IBuyBack, Owned {
     //                  TRIGGERS
     ////////////////////////////////////////////////////////////////////////////////////////////
 
+    /// @notice Iterates through tokens and returns first token that can be sold
+    /// @return address of token that can be sold
     function canSellToken() public view override returns (address) {
         uint256 noOfTokens = tokens.length;
         address token;
@@ -260,6 +282,7 @@ contract BuyBack is IBuyBack, Owned {
                 return token;
             }
         }
+        return address(0);
     }
 
     /// @notice returns bool if the contract can send to treasury if value of USDC > MIN_SEND_TO_TREASURY
@@ -270,6 +293,7 @@ contract BuyBack is IBuyBack, Owned {
     }
 
     /// @notice returns bool if the contract can burn tokens if value of GRO denominated in USDC > MIN_BURN
+    /// @return bool if the contract can burn tokens
     function canBurnTokens() public view override returns (bool) {
         if (
             getPriceV2(USDC, GRO, ERC20(USDC).balanceOf(address(this))) >
@@ -282,6 +306,7 @@ contract BuyBack is IBuyBack, Owned {
 
     /// @notice returns bool if the contract can top up keeper if gelato wallet balance < KEEPER_MIN_ETH
     /// and contract balance > MIN_TOPUP_ETH
+    /// @return bool if the contract can top up keeper
     function canTopUpKeeper() public view override returns (bool) {
         if (
             IGelatoTopUp(GELATO_WALLET).userTokenBalance(
@@ -296,12 +321,19 @@ contract BuyBack is IBuyBack, Owned {
         return false;
     }
 
+    /// @notice returns cumulative amount of ETH in this contract plus USDC value of keeper balance denomiated in ETH
+    /// @return uint256 of ETH available to top up keeper
     function topUpAvailable() public view returns (uint256) {
         uint256 balance = address(this).balance;
         balance += getPriceV3(keeper);
         return balance;
     }
 
+    /// @notice returns bool if the contract can buy back tokens
+    /// @return tokenToSell address of token that can be sold
+    /// @return canTreasury bool if contract can send to treasury
+    /// @return canBurn bool if contract can burn tokens
+    /// @return canTopUp bool if contract can top up keeper
     function buyBackTrigger()
         external
         view
@@ -313,7 +345,6 @@ contract BuyBack is IBuyBack, Owned {
         )
     {
         tokenToSell = canSellToken();
-
         canTreasury = canSendToTreasury();
         canBurn = canBurnTokens();
         canTopUp = canTopUpKeeper();
@@ -323,14 +354,13 @@ contract BuyBack is IBuyBack, Owned {
     //                  CORE
     ////////////////////////////////////////////////////////////////////////////////////////////
 
+    /// @notice Unwraps WETH to ETH and send it to Gelato keeper, then sets keeper storage var to 0
     function topUpKeeper() public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
         uint256 _keeperAmount = uniV3Swap(USDC, WETH, 500, keeper, true);
         if (_keeperAmount == 0) return;
-        (bool success, bytes memory result) = GELATO_WALLET.call{
-            value: _keeperAmount
-        }(
+        (bool success, ) = GELATO_WALLET.call{value: _keeperAmount}(
             abi.encodeWithSignature(
                 "depositFunds(address,address,uint256)",
                 GELATO_KEEPER,
@@ -343,6 +373,7 @@ contract BuyBack is IBuyBack, Owned {
         keeper = 0;
     }
 
+    /// @notice sends USDC to treasury then sets treasury storage var to 0
     function sendToTreasury() public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
@@ -352,6 +383,7 @@ contract BuyBack is IBuyBack, Owned {
         treasury = 0;
     }
 
+    /// @notice burns GRO tokens then sets burner storage var to 0
     function burnTokens() public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
@@ -363,9 +395,11 @@ contract BuyBack is IBuyBack, Owned {
         burner = 0;
     }
 
+    /// @notice Unwraps ERC4626 tokens to underlying asset
+    /// @param _amount amount of tokens to unwrap
+    /// @param _wrapper address of wrapper contract
     function _unwrapToken(
         uint256 _amount,
-        address _token,
         address _wrapper
     ) internal returns (uint256, address) {
         ERC4626 wrapper = ERC4626(_wrapper);
@@ -374,6 +408,12 @@ contract BuyBack is IBuyBack, Owned {
         return (amount, asset);
     }
 
+    /// @notice sell tokens for USDC through predefined AMM
+    /// @param _token address of token to sell
+    /// @param _amount amount of token to sell
+    /// @param _amm AMM to use for swap
+    /// @param _fee fee to use for swap
+    /// @return amount of tokens received from swap
     function _sellTokens(
         address _token,
         uint256 _amount,
@@ -389,6 +429,8 @@ contract BuyBack is IBuyBack, Owned {
         }
     }
 
+    /// @notice sell tokens for USDC and distribute to treasury, burner, keeper, and owner
+    /// @param _token address of token to sell
     function sellTokens(address _token) public override {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
@@ -399,11 +441,7 @@ contract BuyBack is IBuyBack, Owned {
 
         address wrapper = tokenI.wrapped;
         if (wrapper != address(0))
-            (amountToSell, _token) = _unwrapToken(
-                amountToSell,
-                _token,
-                wrapper
-            );
+            (amountToSell, _token) = _unwrapToken(amountToSell, wrapper);
         uint256 amount = _sellTokens(
             _token,
             amountToSell,
@@ -427,30 +465,14 @@ contract BuyBack is IBuyBack, Owned {
         );
     }
 
-    function runBuyBack(
-        address _token,
-        bool _burn,
-        bool _treasury,
-        bool _topUp
-    ) external returns (bool) {
-        sellTokens(_token);
-        if (_burn) burnTokens();
-        if (_treasury) sendToTreasury();
-        if (_topUp) topUpKeeper();
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////
     //                  UTILITY
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    function getPriceCurve(uint256 _amount) public view returns (uint256) {
-        return
-            ICurve3Pool(THREE_POOL).calc_withdraw_one_coin(
-                _amount,
-                USDC_CRV_INDEX
-            );
-    }
-
+    /// @notice Fetch price from Uniswap V2
+    /// @param _start address of token to sell
+    /// @param _end address of token to buy
+    /// @param _amount amount of token to sell
     function getPriceV2(
         address _start,
         address _end,
@@ -465,6 +487,9 @@ contract BuyBack is IBuyBack, Owned {
         return uniSwap[uniSwap.length - 1];
     }
 
+    /// @notice Returns the amount of ETH that can be bought with the given amount of USDC
+    /// @param _amount The amount of USDC to sell for ETH
+    /// @return price The amount of ETH that can be bought with the given amount of USDC
     function getPriceV3(uint256 _amount) public view returns (uint256 price) {
         (uint160 sqrtPriceX96, , , , , , ) = IUniV3_POOL(USDC_ETH_V3).slot0();
         price = ((2 ** 192 * DEFAULT_DECIMALS_FACTOR) /
@@ -472,6 +497,10 @@ contract BuyBack is IBuyBack, Owned {
         return (_amount * 1E18) / price;
     }
 
+    /// @notice Swap tokens on Uniswap V2
+    /// @param _start address of token to sell
+    /// @param _end address of token to buy
+    /// @param _amount amount of token to sell
     function uniV2Swap(
         address _start,
         address _end,
@@ -494,6 +523,12 @@ contract BuyBack is IBuyBack, Owned {
         return swap[1];
     }
 
+    /// @notice Swap tokens on Uniswap V3
+    /// @param _start address of token to sell
+    /// @param _end address of token to buy
+    /// @param _fees fees to use for swap
+    /// @param _amount amount of token to sell
+    /// @param _eth whether to unwrap WETH or not
     function uniV3Swap(
         address _start,
         address _end,
@@ -516,6 +551,8 @@ contract BuyBack is IBuyBack, Owned {
         }
     }
 
+    /// @notice Swap tokens on Curve
+    /// @param _amount amount of token to sell
     function curveSwap(uint256 _amount) internal returns (uint256) {
         if (_amount == 0) return 0;
         ICurve3Pool(THREE_POOL).remove_liquidity_one_coin(
