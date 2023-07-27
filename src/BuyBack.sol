@@ -273,9 +273,17 @@ contract BuyBack is IBuyBack, Owned {
     function canSellToken() public view override returns (address) {
         uint256 noOfTokens = tokens.length;
         address token;
-        for (uint256 i = 0; i < noOfTokens - 1; i++) {
+        for (uint256 i = 0; i < noOfTokens; i++) {
             token = tokens[i];
-            if (
+            address wrapper = tokenInfo[token].wrapped;
+            if (wrapper != address(0)) {
+                if (
+                    ERC20(wrapper).balanceOf(address(this)) >
+                    tokenInfo[token].minSellAmount
+                ) {
+                    return token;
+                }
+            } else if (
                 ERC20(token).balanceOf(address(this)) >
                 tokenInfo[token].minSellAmount
             ) {
@@ -435,13 +443,18 @@ contract BuyBack is IBuyBack, Owned {
         if (msg.sender != owner || !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
 
-        uint256 amountToSell = ERC20(_token).balanceOf(address(this));
         tokenData memory tokenI = tokenInfo[_token];
-        if (amountToSell < tokenI.minSellAmount) return;
 
         address wrapper = tokenI.wrapped;
-        if (wrapper != address(0))
-            (amountToSell, _token) = _unwrapToken(amountToSell, wrapper);
+        uint256 amountToSell;
+        if (wrapper != address(0)) {
+            uint256 wrappedAmount = ERC20(wrapper).balanceOf(address(this));
+            (amountToSell, _token) = _unwrapToken(wrappedAmount, wrapper);
+        } else {
+            amountToSell = ERC20(_token).balanceOf(address(this));
+        }
+
+        if (amountToSell < tokenI.minSellAmount) return;
         uint256 amount = _sellTokens(
             _token,
             amountToSell,

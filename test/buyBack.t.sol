@@ -84,8 +84,7 @@ contract buyBackTest is Test {
         bb.setTokenDistribution(3000, 5000, 2000);
         bb.setToken(address(USDC), ZERO, type(uint256).max, 1, 500);
         bb.setToken(address(GRO), ZERO, 1000e18, 0, 0);
-        bb.setToken(address(gVault), address(gVault), 1000e18, 2, 0);
-        bb.setToken(address(THREE_POOL_TOKEN), ZERO, 1000e18, 2, 0);
+        bb.setToken(address(THREE_POOL_TOKEN), address(gVault), 1000e18, 2, 0);
 
         resolver = new BuyBackResolver(address(bb));
         vm.stopPrank();
@@ -268,11 +267,16 @@ contract buyBackTest is Test {
 
         vm.startPrank(BASED_ADDRESS);
         assertEq(USDC.balanceOf(address(bb)), 0);
+        assertGt(gVault.balanceOf(address(bb)), 0);
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
 
         assertGt(USDC.balanceOf(address(bb)), 0);
         assertTrue(bb.canSellToken() == ZERO);
+
+        // Extract 3crv token data
+        assertEq(THREE_POOL_TOKEN.balanceOf(address(bb)), 0);
+        assertEq(gVault.balanceOf(address(bb)), 0);
     }
 
     function testSellTokenFuzz(uint256 amount) public {
