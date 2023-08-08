@@ -67,12 +67,14 @@ contract buyBackTest is Test {
 
     address payable[] internal users;
     address internal alice;
+    address internal keeper;
 
     function setUp() public {
         utils = new Utils();
-        users = utils.createUsers(1);
+        users = utils.createUsers(2);
 
         alice = users[0];
+        keeper = users[1];
         vm.label(alice, "Alice");
 
         vm.startPrank(BASED_ADDRESS);
@@ -80,7 +82,7 @@ contract buyBackTest is Test {
         gVault = new MockERC4624(THREE_POOL_TOKEN, "test vault", "TV", 18);
         bb = new BuyBack();
 
-        bb.setKeeper(BASED_ADDRESS);
+        bb.setKeeper(keeper);
         bb.setTokenDistribution(3000, 5000, 2000);
         bb.setToken(address(USDC), ZERO, type(uint256).max, 1, 500);
         bb.setToken(address(GRO), ZERO, 1000e18, 0, 0);
@@ -265,7 +267,7 @@ contract buyBackTest is Test {
         address tokenToSell = bb.canSellToken();
         assertTrue(tokenToSell != ZERO);
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         assertEq(USDC.balanceOf(address(bb)), 0);
         assertGt(gVault.balanceOf(address(bb)), 0);
         bb.sellTokens(tokenToSell);
@@ -289,8 +291,7 @@ contract buyBackTest is Test {
         vm.stopPrank();
         address tokenToSell = bb.canSellToken();
         assertTrue(tokenToSell != ZERO);
-        console2.log("tokenToSell", tokenToSell);
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         assertEq(USDC.balanceOf(address(bb)), 0);
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
@@ -308,7 +309,7 @@ contract buyBackTest is Test {
 
         assertTrue(bb.canSendToTreasury() == false);
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         address tokenToSell = bb.canSellToken();
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
@@ -317,7 +318,7 @@ contract buyBackTest is Test {
         uint256 initBuyBackBalance = USDC.balanceOf(address(bb));
         assertTrue(initBuyBackBalance > 0);
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         uint256 initTreasuryBalance = USDC.balanceOf(GRO_TREASURY);
         bb.sendToTreasury();
         assertTrue(USDC.balanceOf(address(bb)) < initBuyBackBalance);
@@ -335,14 +336,14 @@ contract buyBackTest is Test {
 
         assertTrue(bb.canBurnTokens() == false);
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         address tokenToSell = bb.canSellToken();
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
 
         assertTrue(bb.canBurnTokens() == true);
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         uint256 initBuyBackBalance = USDC.balanceOf(address(bb));
         uint256 initBonusAmount = IHodler(GRO_HODLER).totalBonus();
         assertTrue(IVest(GRO_VESTER).totalBalance(address(this)) == 0);
@@ -363,7 +364,7 @@ contract buyBackTest is Test {
 
         assertTrue(bb.canTopUpKeeper() == false);
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         address tokenToSell = bb.canSellToken();
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
@@ -371,7 +372,7 @@ contract buyBackTest is Test {
         // need to set neutral keeper or reduce keeper wallet to 0 prior to test
         //assertTrue(bb.canTopUpKeeper() == true);
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         uint256 initBuyBackBalance = USDC.balanceOf(address(bb));
         uint256 initGelatoBalance = IGelato(GELATO_WALLET)
             .totalUserTokenBalance(GELATO_KEEPER, GELATO_ETH);
@@ -405,7 +406,7 @@ contract buyBackTest is Test {
         assertFalse(treasury);
         assertFalse(burn);
         assertFalse(topUp);
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         address tokenToSell = bb.canSellToken();
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
@@ -450,7 +451,7 @@ contract buyBackTest is Test {
         assertFalse(topUp);
         assertTrue(token != address(0));
 
-        vm.startPrank(BASED_ADDRESS);
+        vm.startPrank(keeper);
         address tokenToSell = bb.canSellToken();
         bb.sellTokens(tokenToSell);
         vm.stopPrank();
