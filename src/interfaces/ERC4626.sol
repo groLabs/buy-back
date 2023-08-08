@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.12;
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC20} from "../../lib/solmate/src/tokens/ERC20.sol";
 
 abstract contract ERC4626 is ERC20 {
     event Deposit(

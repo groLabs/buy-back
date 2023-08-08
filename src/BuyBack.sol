@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {Owned} from "solmate/auth/Owned.sol";
+import {ERC20} from "../lib/solmate/src/tokens/ERC20.sol";
+import {Owned} from "../lib/solmate/src/auth/Owned.sol";
 import {ERC4626} from "./interfaces/ERC4626.sol";
 import {IBuyBack} from "./interfaces/IBuyBack.sol";
 import {IBurner} from "./interfaces/IBurner.sol";
@@ -364,7 +364,7 @@ contract BuyBack is IBuyBack, Owned {
 
     /// @notice Unwraps WETH to ETH and send it to Gelato keeper, then sets keeper storage var to 0
     function topUpKeeper() public override {
-        if (msg.sender != owner || !keepers[msg.sender])
+        if (msg.sender != owner && !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
         uint256 _keeperAmount = uniV3Swap(USDC, WETH, 500, keeper, true);
         if (_keeperAmount == 0) return;
@@ -383,7 +383,7 @@ contract BuyBack is IBuyBack, Owned {
 
     /// @notice sends USDC to treasury then sets treasury storage var to 0
     function sendToTreasury() public override {
-        if (msg.sender != owner || !keepers[msg.sender])
+        if (msg.sender != owner && !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
         uint256 _treasury = treasury;
         ERC20(USDC).transfer(GRO_TREASURY, _treasury);
@@ -393,7 +393,7 @@ contract BuyBack is IBuyBack, Owned {
 
     /// @notice burns GRO tokens then sets burner storage var to 0
     function burnTokens() public override {
-        if (msg.sender != owner || !keepers[msg.sender])
+        if (msg.sender != owner && !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
         uint256 _burner = burner;
         uint256 amount = uniV2Swap(USDC, GRO, _burner);
@@ -440,7 +440,7 @@ contract BuyBack is IBuyBack, Owned {
     /// @notice sell tokens for USDC and distribute to treasury, burner, keeper, and owner
     /// @param _token address of token to sell
     function sellTokens(address _token) public override {
-        if (msg.sender != owner || !keepers[msg.sender])
+        if (msg.sender != owner && !keepers[msg.sender])
             revert BuyBackErrors.NotKeeper();
 
         tokenData memory tokenI = tokenInfo[_token];
