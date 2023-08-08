@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {Owned} from "solmate/auth/Owned.sol";
+import {ERC20} from "../lib/solmate/src/tokens/ERC20.sol";
+import {Owned} from "../lib/solmate/src/auth/Owned.sol";
 import {ERC4626} from "./interfaces/ERC4626.sol";
 import {IBuyBack} from "./interfaces/IBuyBack.sol";
 import {IBurner} from "./interfaces/IBurner.sol";
